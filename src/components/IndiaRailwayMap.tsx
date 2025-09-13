@@ -123,7 +123,7 @@ export function IndiaRailwayMap({ selectedTrain, trains, onTrainClick }: IndiaRa
   };
 
   return (
-    <Card className={`${isFullscreen ? 'fixed inset-4 z-50' : 'h-full'} bg-gray-900 text-white`}>
+    <Card className="h-full w-full bg-gray-900 text-white">
       <CardHeader className="pb-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -193,7 +193,7 @@ export function IndiaRailwayMap({ selectedTrain, trains, onTrainClick }: IndiaRa
       </CardHeader>
 
       <CardContent className="p-0 relative">
-        <div className="relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 200px)' : '500px' }}>
+        <div className="relative overflow-hidden h-full">
           <svg
             width="100%"
             height="100%"

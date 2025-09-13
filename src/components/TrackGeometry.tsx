@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Download, AlertTriangle } from 'lucide-react';
+import { Download, AlertTriangle, Map, Maximize2, Minimize2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { LiveMap } from './LiveMap';
+import { TrainMap } from './TrainMap';
 
 // Mock data for track geometry
 const geometryData = [
@@ -58,11 +59,86 @@ interface TrackGeometryProps {
 }
 
 export function TrackGeometry({ onLocationClick, showDetailedView = false, trainContext }: TrackGeometryProps) {
+  const [showFullScreenMap, setShowFullScreenMap] = useState(false);
+
   return (
     <div className="space-y-6">
-      {/* Live Map - Only show on main dashboard */}
-      {!showDetailedView && (
-        <LiveMap onLocationClick={onLocationClick} showDetailedView={showDetailedView} />
+      {/* Live Track Monitoring Map */}
+      {!showDetailedView && trainContext && (
+        <Card className="shadow-lg">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Map className="w-5 h-5 text-blue-600" />
+                Live Track Monitoring
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-green-50 text-green-700">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                  LIVE GPS
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFullScreenMap(!showFullScreenMap)}
+                  className="flex items-center gap-2"
+                >
+                  {showFullScreenMap ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  {showFullScreenMap ? 'Exit Fullscreen' : 'Fullscreen Map'}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {showFullScreenMap ? (
+              <div className="fixed inset-0 z-50 bg-white">
+                <div className="absolute top-4 right-4 z-10">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFullScreenMap(false)}
+                    className="bg-white shadow-lg"
+                  >
+                    <Minimize2 className="w-4 h-4 mr-2" />
+                    Exit Fullscreen
+                  </Button>
+                </div>
+                <div className="h-full w-full">
+                  <TrainMap
+                    trainId={trainContext.id}
+                    coordinates={trainContext.currentLocation}
+                    stations={trainContext.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
+                    route={trainContext.route || []}
+                    speedKmph={trainContext.currentSpeed}
+                    onPointClick={(p) => {
+                      onLocationClick?.({ ...p, chainage: trainContext.currentLocation.chainage });
+                    }}
+                    className="h-full w-full"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="h-96">
+                <TrainMap
+                  trainId={trainContext.id}
+                  coordinates={trainContext.currentLocation}
+                  stations={trainContext.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
+                  route={trainContext.route || []}
+                  speedKmph={trainContext.currentSpeed}
+                  onPointClick={(p) => {
+                    onLocationClick?.({ ...p, chainage: trainContext.currentLocation.chainage });
+                  }}
+                  className="h-full w-full"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Live Map - Only show on main dashboard when no train context */}
+      {!showDetailedView && !trainContext && (
+        <LiveMap onLocationClick={onLocationClick} showDetailedView={showDetailedView} trainContext={trainContext} />
       )}
       {/* Multi-Line Chart */}
       <Card className="shadow-lg">

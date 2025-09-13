@@ -367,6 +367,130 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
             />
           </div>
 
+          {/* Thermal Map with Abnormality Detection */}
+          <Card className="backdrop-blur bg-white/60 border-2 border-orange-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-orange-600" />
+                Thermal Map - Track Abnormality Detection
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Legend */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                      <span className="text-sm font-medium">Critical Hot Spots</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      <span className="text-sm font-medium">Medium Anomalies</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+                      <span className="text-sm font-medium">Minor Variations</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium">Normal Range</span>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Last Updated: {new Date().toLocaleTimeString()}
+                  </div>
+                </div>
+
+                {/* Thermal Map Visualization */}
+                <div className="relative">
+                  <div className="aspect-video bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900 rounded-lg overflow-hidden relative">
+                    {/* Track representation */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-full h-2 bg-gray-600 rounded-full relative">
+                        {/* Track segments with different thermal states */}
+                        <div className="absolute left-0 top-0 w-1/4 h-full bg-green-500 rounded-l-full"></div>
+                        <div className="absolute left-1/4 top-0 w-1/4 h-full bg-yellow-400"></div>
+                        <div className="absolute left-1/2 top-0 w-1/4 h-full bg-orange-500"></div>
+                        <div className="absolute right-0 top-0 w-1/4 h-full bg-red-500 rounded-r-full"></div>
+                      </div>
+                    </div>
+
+                    {/* Abnormality markers */}
+                    <div className="absolute top-1/2 left-1/4 transform -translate-y-1/2 -translate-x-1/2">
+                      <div className="w-6 h-6 bg-yellow-400 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Minor: 45°C
+                      </div>
+                    </div>
+                    
+                    <div className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-1/2">
+                      <div className="w-8 h-8 bg-orange-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Medium: 65°C
+                      </div>
+                    </div>
+                    
+                    <div className="absolute top-1/2 right-1/4 transform -translate-y-1/2 translate-x-1/2">
+                      <div className="w-10 h-10 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Critical: 85°C
+                      </div>
+                    </div>
+
+                    {/* Train position indicator */}
+                    <div className="absolute top-1/2 left-1/6 transform -translate-y-1/2 -translate-x-1/2">
+                      <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Train
+                      </div>
+                    </div>
+
+                    {/* Temperature scale overlay */}
+                    <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-2 rounded-lg">
+                      <div className="text-xs font-mono">
+                        <div>Scale: 0°C - 100°C</div>
+                        <div className="mt-1 w-16 h-2 bg-gradient-to-r from-blue-500 via-green-500 via-yellow-500 to-red-500 rounded"></div>
+                      </div>
+                    </div>
+
+                    {/* Chainage markers */}
+                    <div className="absolute bottom-4 left-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-mono">
+                      Chainage: {currentThermalImage?.chainage || trainContext.currentLocation.chainage} km
+                    </div>
+                  </div>
+                </div>
+
+                {/* Abnormality Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="border-red-200 bg-red-50">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl font-bold text-red-600">1</div>
+                      <div className="text-sm text-gray-600">Critical Hot Spots</div>
+                      <div className="text-xs text-red-600 mt-1">Immediate attention required</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border-orange-200 bg-orange-50">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl font-bold text-orange-600">1</div>
+                      <div className="text-sm text-gray-600">Medium Anomalies</div>
+                      <div className="text-xs text-orange-600 mt-1">Monitor closely</div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border-yellow-200 bg-yellow-50">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl font-bold text-yellow-600">1</div>
+                      <div className="text-sm text-gray-600">Minor Variations</div>
+                      <div className="text-xs text-yellow-600 mt-1">Within acceptable range</div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Temperature Trends Chart */}
           <Card className="backdrop-blur bg-white/60 border-2 border-green-200">
             <CardHeader>
@@ -398,7 +522,7 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
             </CardHeader>
             <CardContent>
               {currentThermalImage ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {/* Location Info */}
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
@@ -420,65 +544,103 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                     </div>
                   </div>
 
-                  {/* Thermal Image Display */}
-                  <div className="relative">
-                    <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-                      <img 
-                        src={currentThermalImage.thermalImage}
-                        alt={`Thermal image at chainage ${currentThermalImage.chainage} km`}
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      {/* Thermal overlay effects */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-transparent to-red-900/20"></div>
-                      
-                      {/* Temperature readings overlay */}
-                      <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-2 rounded-lg">
-                        <div className="text-xs font-mono">
-                          <div>Max: {currentThermalImage.maxTemp.toFixed(1)}°C</div>
-                          <div>Min: {currentThermalImage.minTemp.toFixed(1)}°C</div>
-                          <div>Avg: {currentThermalImage.avgTemp.toFixed(1)}°C</div>
+                  {/* Dual Image Display */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Raw Visual Image */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-5 h-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Raw Visual Image</h3>
+                      </div>
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden relative border-2 border-blue-200">
+                        <img 
+                          src="/src/assets/raw.png"
+                          alt="Raw visual image of railway track and train"
+                          className="w-full h-full object-cover"
+                        />
+                        
+                        {/* Camera info overlay */}
+                        <div className="absolute top-4 left-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-mono">
+                          VISUAL CAM - LIVE
                         </div>
-                      </div>
-                      
-                      {/* Camera info overlay */}
-                      <div className="absolute top-4 right-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-mono">
-                        THERMAL CAM - LIVE
-                      </div>
-                      
-                      {/* Defect detection overlay */}
-                      {currentThermalImage.hasDefect && (
-                        <div className="absolute bottom-4 left-4 bg-red-600/90 text-white px-3 py-2 rounded-lg">
+                        
+                        {/* Track identification overlay */}
+                        <div className="absolute bottom-4 left-4 bg-blue-600/90 text-white px-3 py-2 rounded-lg">
                           <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span className="font-bold">DEFECT DETECTED!</span>
+                            <Eye className="w-4 h-4" />
+                            <span className="font-bold">RAW VISUAL</span>
                           </div>
                           <div className="text-sm mt-1">
-                            Type: {currentThermalImage.defectType}
+                            Track & Train Detection
                           </div>
                         </div>
-                      )}
-                      
-                      {/* Track OK overlay */}
-                      {!currentThermalImage.hasDefect && (
-                        <div className="absolute bottom-4 left-4 bg-green-600/90 text-white px-3 py-2 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="font-bold">TRACK OK</span>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                    
-                    {/* Temperature Scale */}
-                    <div className="mt-4 flex items-center gap-4">
-                      <span className="text-sm text-gray-600 font-medium">Temperature Scale:</span>
-                      <div className="flex-1 h-6 bg-gradient-to-r from-blue-500 via-green-500 via-yellow-500 to-red-500 rounded-lg relative">
-                        <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-white font-bold">
-                          <span>0°C</span>
-                          <span>50°C</span>
-                          <span>100°C</span>
+
+                    {/* Thermographic Image */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Thermometer className="w-5 h-5 text-red-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Thermographic Image</h3>
+                      </div>
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden relative border-2 border-red-200">
+                        <img 
+                          src="/src/assets/thermal.png"
+                          alt={`Thermographic heatmap at chainage ${currentThermalImage.chainage} km`}
+                          className="w-full h-full object-cover"
+                        />
+                        
+                        {/* Thermal overlay effects */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-transparent to-red-900/20"></div>
+                        
+                        {/* Temperature readings overlay */}
+                        <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-2 rounded-lg">
+                          <div className="text-xs font-mono">
+                            <div>Max: {currentThermalImage.maxTemp.toFixed(1)}°C</div>
+                            <div>Min: {currentThermalImage.minTemp.toFixed(1)}°C</div>
+                            <div>Avg: {currentThermalImage.avgTemp.toFixed(1)}°C</div>
+                          </div>
                         </div>
+                        
+                        {/* Camera info overlay */}
+                        <div className="absolute top-4 right-4 bg-black/70 text-white px-2 py-1 rounded text-xs font-mono">
+                          THERMAL CAM - LIVE
+                        </div>
+                        
+                        {/* Defect detection overlay */}
+                        {currentThermalImage.hasDefect && (
+                          <div className="absolute bottom-4 left-4 bg-red-600/90 text-white px-3 py-2 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span className="font-bold">DEFECT DETECTED!</span>
+                            </div>
+                            <div className="text-sm mt-1">
+                              Type: {currentThermalImage.defectType}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Track OK overlay */}
+                        {!currentThermalImage.hasDefect && (
+                          <div className="absolute bottom-4 left-4 bg-green-600/90 text-white px-3 py-2 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="font-bold">TRACK OK</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Temperature Scale */}
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-gray-600 font-medium">Temperature Scale:</span>
+                    <div className="flex-1 h-6 bg-gradient-to-r from-blue-500 via-green-500 via-yellow-500 to-red-500 rounded-lg relative">
+                      <div className="absolute inset-0 flex items-center justify-between px-2 text-xs text-white font-bold">
+                        <span>0°C</span>
+                        <span>50°C</span>
+                        <span>100°C</span>
                       </div>
                     </div>
                   </div>
@@ -571,7 +733,12 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Raw */}
                   <div className="space-y-4">
-                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
+                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
+                      <img 
+                        src="/src/assets/raw.png"
+                        alt="Raw visual image of railway track and train"
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute top-4 left-4 text-white">
                         <div className="text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">RAW • THERMAL</div>
                       </div>
@@ -587,7 +754,12 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                   </div>
                   {/* Processed */}
                   <div className="space-y-4">
-                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
+                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
+                      <img 
+                        src="/src/assets/thermal.png"
+                        alt="Thermographic heatmap of railway track"
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute inset-0 bg-black bg-opacity-30"></div>
                       {/* Simulated hot spots & overlays */}
                       <div className="absolute top-1/3 left-1/4 w-8 h-8 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
@@ -614,10 +786,16 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
               ) : (
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-4">
-                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
-                      {showProcessed && <div className="absolute inset-0 bg-black bg-opacity-30"></div>}
-                      {showProcessed && (
+                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
+                      {showProcessed ? (
                         <>
+                          <img 
+                            src="/src/assets/thermal.png"
+                            alt="Thermographic heatmap of railway track"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+                          {/* Simulated hot spots & overlays */}
                           <div className="absolute top-1/3 left-1/4 w-8 h-8 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
                           <div className="absolute bottom-1/3 right-1/3 w-6 h-6 bg-yellow-400 rounded-full opacity-70"></div>
                           <div className="absolute bottom-4 left-4 text-white text-sm font-mono">
@@ -626,6 +804,12 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                             <div>Avg: 42.1°C</div>
                           </div>
                         </>
+                      ) : (
+                        <img 
+                          src="/src/assets/raw.png"
+                          alt="Raw visual image of railway track and train"
+                          className="w-full h-full object-cover"
+                        />
                       )}
                       <div className="absolute top-4 left-4 text-white">
                         <div className="text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">{showProcessed ? 'PROCESSED • THERMOGRAM' : 'RAW • THERMAL'}</div>

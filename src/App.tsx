@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from './components/ui/sidebar';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -49,6 +49,9 @@ import {
   Scan,
   Waves
 } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
+import { TrainMap } from './components/TrainMap';
+import { API_CONFIG, TrainLocationResponse, WebSocketMessage } from './config/api';
 
 const menuItems = [
   { id: 'train-selection', label: 'Train Selection', icon: List },
@@ -143,6 +146,7 @@ export default function App() {
   const [selectedTrain, setSelectedTrain] = useState<TrainData | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<any>(null);
   const [showDetailedDashboard, setShowDetailedDashboard] = useState(false);
+  const [simIndex, setSimIndex] = useState<number>(0);
 
   const handleTrainSelect = (train: TrainData) => {
     setSelectedTrain(train);
@@ -172,6 +176,131 @@ export default function App() {
     setShowDetailedDashboard(false);
     setSelectedSegment(null);
   };
+
+  // Real-time GPS updates from API (with WebSocket fallback to polling)
+  useEffect(() => {
+    if (!selectedTrain) return;
+    
+    let ws: WebSocket | null = null;
+    let interval: NodeJS.Timeout | null = null;
+    
+    const updateTrainLocation = (locationData: TrainLocationResponse) => {
+      setSelectedTrain((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          currentLocation: {
+            ...prev.currentLocation,
+            lat: locationData.lat,
+            lng: locationData.lng,
+            chainage: locationData.chainage || prev.currentLocation.chainage
+          },
+          currentSpeed: locationData.speedKmph || prev.currentSpeed,
+          status: locationData.status || prev.status,
+          nextStation: locationData.nextStation || prev.nextStation,
+          eta: locationData.eta || prev.eta
+        };
+      });
+    };
+
+    const fallbackToSimulation = () => {
+      console.warn('API/WebSocket failed, falling back to simulation');
+      if (selectedTrain.route && selectedTrain.route.length > 0) {
+        setSimIndex((prev) => (prev + 1) % selectedTrain.route.length);
+        setSelectedTrain((prev) => {
+          if (!prev) return prev;
+          const nextPoint = selectedTrain.route[(simIndex + 1) % selectedTrain.route.length];
+          return {
+            ...prev,
+            currentLocation: {
+              ...prev.currentLocation,
+              lat: nextPoint.lat,
+              lng: nextPoint.lng,
+              chainage: prev.currentLocation.chainage
+            }
+          };
+        });
+      }
+    };
+
+    const fetchTrainLocation = async () => {
+      try {
+        const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRAIN_LOCATION(selectedTrain.id)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.REQUEST_TIMEOUT);
+        
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            // Add authentication headers if needed
+            // 'Authorization': `Bearer ${yourAuthToken}`,
+          },
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+        
+        const locationData: TrainLocationResponse = await response.json();
+        updateTrainLocation(locationData);
+      } catch (error) {
+        console.warn('API call failed:', error);
+        fallbackToSimulation();
+      }
+    };
+
+    // Try WebSocket first (preferred for real-time updates)
+    try {
+      const wsUrl = `${API_CONFIG.WS_URL}${API_CONFIG.WS_ENDPOINTS.TRAIN_LOCATION(selectedTrain.id)}`;
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connected for train', selectedTrain.id);
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          if (message.type === 'location_update' && message.data) {
+            updateTrainLocation(message.data);
+          }
+        } catch (error) {
+          console.warn('Failed to parse WebSocket message:', error);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.warn('WebSocket error, falling back to polling:', error);
+        // Fallback to polling if WebSocket fails
+        interval = setInterval(fetchTrainLocation, API_CONFIG.POLLING_INTERVAL);
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket closed, falling back to polling');
+        // Fallback to polling if WebSocket closes
+        interval = setInterval(fetchTrainLocation, API_CONFIG.POLLING_INTERVAL);
+      };
+    } catch (error) {
+      console.warn('WebSocket not available, using polling:', error);
+      // Fallback to polling if WebSocket is not available
+      interval = setInterval(fetchTrainLocation, API_CONFIG.POLLING_INTERVAL);
+    }
+
+    // Initial fetch
+    fetchTrainLocation();
+    
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [selectedTrain, simIndex]);
 
   const getTrainTypeIcon = (type: string) => {
     switch (type) {
@@ -299,7 +428,7 @@ export default function App() {
     }
   };
 
-  const StandardModal = ({ standard, children }: { standard: keyof typeof standardsContent; children: React.ReactNode }) => {
+  const StandardModal: React.FC<{ standard: keyof typeof standardsContent; children: React.ReactNode }> = ({ standard, children }) => {
     const content = standardsContent[standard];
     
     return (
@@ -368,11 +497,31 @@ export default function App() {
         );
       case 'railway-map':
         return (
-          <IndiaRailwayMap
-            selectedTrain={selectedTrain}
-            trains={mockTrains}
-            onTrainClick={handleTrainSelect}
-          />
+          <div className="h-screen w-full -m-6">
+            {selectedTrain ? (
+              <div className="h-full">
+                <TrainMap
+                  trainId={selectedTrain.id}
+                  coordinates={selectedTrain.currentLocation}
+                  stations={selectedTrain.route.map(r => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng }))}
+                  route={selectedTrain.route}
+                  speedKmph={selectedTrain.currentSpeed}
+                  onPointClick={(p) => {
+                    setSelectedSegment({ ...p, chainage: selectedTrain?.currentLocation.chainage });
+                  }}
+                  className="h-full w-full"
+                />
+              </div>
+            ) : (
+              <div className="h-full">
+                <IndiaRailwayMap
+                  selectedTrain={selectedTrain}
+                  trains={mockTrains}
+                  onTrainClick={handleTrainSelect}
+                />
+              </div>
+            )}
+          </div>
         );
       case 'track-geometry':
         return selectedTrain ? 
