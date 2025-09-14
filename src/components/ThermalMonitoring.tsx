@@ -554,7 +554,7 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                       </div>
                       <div className="aspect-video bg-black rounded-lg overflow-hidden relative border-2 border-blue-200">
                         <img 
-                          src="/src/assets/raw.png"
+                          src="https://images.unsplash.com/photo-1544827763-2b69d33e73b4?w=800&h=600&fit=crop"
                           alt="Raw visual image of railway track and train"
                           className="w-full h-full object-cover"
                         />
@@ -585,7 +585,7 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                       </div>
                       <div className="aspect-video bg-black rounded-lg overflow-hidden relative border-2 border-red-200">
                         <img 
-                          src="/src/assets/thermal.png"
+                          src={currentThermalImage.thermalImage}
                           alt={`Thermographic heatmap at chainage ${currentThermalImage.chainage} km`}
                           className="w-full h-full object-cover"
                         />
@@ -733,12 +733,7 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Raw */}
                   <div className="space-y-4">
-                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
-                      <img 
-                        src="/src/assets/raw.png"
-                        alt="Raw visual image of railway track and train"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
                       <div className="absolute top-4 left-4 text-white">
                         <div className="text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">RAW • THERMAL</div>
                       </div>
@@ -754,12 +749,7 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                   </div>
                   {/* Processed */}
                   <div className="space-y-4">
-                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
-                      <img 
-                        src="/src/assets/thermal.png"
-                        alt="Thermographic heatmap of railway track"
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
                       <div className="absolute inset-0 bg-black bg-opacity-30"></div>
                       {/* Simulated hot spots & overlays */}
                       <div className="absolute top-1/3 left-1/4 w-8 h-8 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
@@ -786,16 +776,10 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
               ) : (
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-4">
-                    <div className="aspect-video bg-black rounded-lg relative overflow-hidden">
-                      {showProcessed ? (
+                    <div className="aspect-video bg-gradient-to-br from-blue-900 via-purple-900 to-red-900 rounded-lg relative overflow-hidden">
+                      {showProcessed && <div className="absolute inset-0 bg-black bg-opacity-30"></div>}
+                      {showProcessed && (
                         <>
-                          <img 
-                            src="/src/assets/thermal.png"
-                            alt="Thermographic heatmap of railway track"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-30"></div>
-                          {/* Simulated hot spots & overlays */}
                           <div className="absolute top-1/3 left-1/4 w-8 h-8 bg-red-500 rounded-full opacity-80 animate-pulse"></div>
                           <div className="absolute bottom-1/3 right-1/3 w-6 h-6 bg-yellow-400 rounded-full opacity-70"></div>
                           <div className="absolute bottom-4 left-4 text-white text-sm font-mono">
@@ -804,12 +788,6 @@ export function ThermalMonitoring({ trainContext, selectedLocation }: ThermalMon
                             <div>Avg: 42.1°C</div>
                           </div>
                         </>
-                      ) : (
-                        <img 
-                          src="/src/assets/raw.png"
-                          alt="Raw visual image of railway track and train"
-                          className="w-full h-full object-cover"
-                        />
                       )}
                       <div className="absolute top-4 left-4 text-white">
                         <div className="text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">{showProcessed ? 'PROCESSED • THERMOGRAM' : 'RAW • THERMAL'}</div>

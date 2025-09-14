@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { MapPin, Navigation, AlertTriangle, CheckCircle, Eye, Map, Maximize2, Minimize2 } from 'lucide-react';
+import { Alert, AlertDescription } from './ui/alert';
+import { MapPin, Navigation, AlertTriangle, CheckCircle, Eye, Map, Maximize2, Minimize2, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { TrainMap } from './TrainMap';
+import { rapidApiService, TrainStatusResponse } from '../services/rapidApiService';
+import { findStationByCode, getStationCoordinates } from '../data/indianStations';
 
 // Mock GPS tracking points every 25cm (0.25m)
 interface TrackPoint {
@@ -57,24 +60,97 @@ interface LiveMapProps {
   onLocationClick?: (point: any) => void;
   showDetailedView?: boolean;
   trainContext?: any;
+  selectedTrainNumber?: string; // Train number for RapidAPI calls
+  onTrainStatusUpdate?: (status: TrainStatusResponse) => void;
 }
 
-export function LiveMap({ onLocationClick, showDetailedView = false, trainContext }: LiveMapProps) {
+export function LiveMap({ onLocationClick, showDetailedView = false, trainContext, selectedTrainNumber, onTrainStatusUpdate }: LiveMapProps) {
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>(generateTrackPoints());
   const [currentPosition, setCurrentPosition] = useState(4000); // Current position in meters
   const [hoveredPoint, setHoveredPoint] = useState<TrackPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<TrackPoint | null>(null);
-  const [mapView, setMapView] = useState<'svg' | 'gis'>('svg');
+  const [mapView, setMapView] = useState<'svg' | 'gis'>('gis'); // Default to GIS for RapidAPI integration
   const [showFullScreenMap, setShowFullScreenMap] = useState(false);
+  
+  // RapidAPI integration state
+  const [trainStatus, setTrainStatus] = useState<TrainStatusResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isApiConfigured, setIsApiConfigured] = useState(false);
 
-  // Simulate live tracking
+  // Check API configuration on mount
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentPosition(prev => (prev + 1) % 10000); // Loop through track
-    }, 1000);
-
-    return () => clearInterval(interval);
+    const configStatus = rapidApiService.getConfigStatus();
+    setIsApiConfigured(configStatus.isConfigured);
   }, []);
+
+  // Fetch train status when train number changes
+  useEffect(() => {
+    if (selectedTrainNumber && isApiConfigured) {
+      fetchTrainStatus(selectedTrainNumber);
+    }
+  }, [selectedTrainNumber, isApiConfigured]);
+
+  // Simulate live tracking (fallback when no API)
+  useEffect(() => {
+    if (!isApiConfigured || !selectedTrainNumber) {
+      const interval = setInterval(() => {
+        setCurrentPosition(prev => (prev + 1) % 10000); // Loop through track
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isApiConfigured, selectedTrainNumber]);
+
+  // Fetch train status from RapidAPI
+  const fetchTrainStatus = async (trainNumber: string) => {
+    if (!isApiConfigured) {
+      setApiError('RapidAPI not configured. Please set VITE_RAPIDAPI_KEY in your .env file');
+      return;
+    }
+
+    setIsLoading(true);
+    setApiError(null);
+
+    try {
+      const response = await rapidApiService.getTrainStatus(trainNumber);
+      
+      if (response.success && response.data) {
+        setTrainStatus(response);
+        setLastUpdated(new Date());
+        
+        // Update train context if provided
+        if (onTrainStatusUpdate) {
+          onTrainStatusUpdate(response);
+        }
+
+        // Update current position based on station coordinates
+        const stationCoords = getStationCoordinates(response.data.current_station.station_code);
+        if (stationCoords) {
+          // Convert to a position index for the track simulation
+          const latDiff = stationCoords.lat - 28.6139; // Relative to Delhi
+          const lngDiff = stationCoords.lng - 77.2090;
+          const position = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff) * 1000; // Rough conversion
+          setCurrentPosition(Math.min(Math.max(position, 0), 10000));
+        }
+      } else {
+        setApiError(response.error?.message || 'Failed to fetch train status');
+      }
+    } catch (error) {
+      console.error('Error fetching train status:', error);
+      setApiError(error instanceof Error ? error.message : 'Unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Refresh train status
+  const refreshTrainStatus = () => {
+    if (selectedTrainNumber) {
+      fetchTrainStatus(selectedTrainNumber);
+    }
+  };
 
   const getMarkerColor = (point: TrackPoint) => {
     if (point.status === 'defected') {
@@ -115,15 +191,45 @@ export function LiveMap({ onLocationClick, showDetailedView = false, trainContex
             <div className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-blue-600" />
               Live Track Monitoring
+              {selectedTrainNumber && (
+                <Badge variant="outline" className="ml-2">
+                  Train: {selectedTrainNumber}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                <Navigation className="w-3 h-3 mr-1" />
-                Position: {currentPositionKm} km
-              </Badge>
-              <Badge variant="outline">
-                GPS: {trackPoints[Math.floor(currentPosition / 0.25)]?.lat}, {trackPoints[Math.floor(currentPosition / 0.25)]?.lng}
-              </Badge>
+              {/* API Status */}
+              {isApiConfigured ? (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Wifi className="w-3 h-3 mr-1" />
+                  Live API
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                  <WifiOff className="w-3 h-3 mr-1" />
+                  Simulation
+                </Badge>
+              )}
+              
+              {/* Position Info */}
+              {trainStatus?.data ? (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  <Navigation className="w-3 h-3 mr-1" />
+                  {trainStatus.data.current_station.station_name}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  <Navigation className="w-3 h-3 mr-1" />
+                  Position: {currentPositionKm} km
+                </Badge>
+              )}
+              
+              {/* Last Updated */}
+              {lastUpdated && (
+                <Badge variant="outline" className="text-xs">
+                  Updated: {lastUpdated.toLocaleTimeString()}
+                </Badge>
+              )}
             </div>
           </CardTitle>
           <div className="flex items-center justify-between mt-4">
@@ -148,6 +254,21 @@ export function LiveMap({ onLocationClick, showDetailedView = false, trainContex
               </Button>
             </div>
             <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              {selectedTrainNumber && isApiConfigured && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refreshTrainStatus}
+                  disabled={isLoading}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? 'Refreshing...' : 'Refresh Status'}
+                </Button>
+              )}
+              
+              {/* Fullscreen Button */}
               <Button
                 variant="outline"
                 size="sm"
@@ -161,6 +282,59 @@ export function LiveMap({ onLocationClick, showDetailedView = false, trainContex
           </div>
         </CardHeader>
         <CardContent>
+          {/* API Error Display */}
+          {apiError && (
+            <Alert className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {apiError}
+                {!isApiConfigured && (
+                  <div className="mt-2 text-sm">
+                    To enable live train tracking, add your RapidAPI key to the .env file:
+                    <code className="block mt-1 p-2 bg-gray-100 rounded text-xs">
+                      VITE_RAPIDAPI_KEY=your_api_key_here
+                    </code>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Train Status Info */}
+          {trainStatus?.data && (
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-blue-900">
+                    {trainStatus.data.train_name} ({trainStatus.data.train_number})
+                  </h4>
+                  <p className="text-sm text-blue-800">
+                    Current Station: {trainStatus.data.current_station.station_name} ({trainStatus.data.current_station.station_code})
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    Status: {trainStatus.data.status} • Speed: {trainStatus.data.speed} km/h
+                    {trainStatus.data.delay > 0 && ` • Delay: +${trainStatus.data.delay} min`}
+                  </p>
+                  {trainStatus.data.next_station && (
+                    <p className="text-sm text-blue-700">
+                      Next: {trainStatus.data.next_station.station_name} • ETA: {trainStatus.data.eta}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <Badge 
+                    variant={trainStatus.data.status === 'ON_TIME' ? 'default' : 'destructive'}
+                    className="mb-2"
+                  >
+                    {trainStatus.data.status}
+                  </Badge>
+                  <div className="text-xs text-gray-600">
+                    Last updated: {lastUpdated?.toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {showFullScreenMap ? (
             <div className="fixed inset-0 z-50 bg-white">
               <div className="absolute top-4 right-4 z-10">
@@ -175,15 +349,18 @@ export function LiveMap({ onLocationClick, showDetailedView = false, trainContex
                 </Button>
               </div>
               <div className="h-full w-full">
-                {mapView === 'gis' && trainContext ? (
+                {mapView === 'gis' && (trainContext || trainStatus?.data) ? (
                   <TrainMap
-                    trainId={trainContext.id}
-                    coordinates={trainContext.currentLocation}
-                    stations={trainContext.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
-                    route={trainContext.route || []}
-                    speedKmph={trainContext.currentSpeed}
+                    trainId={trainStatus?.data?.train_number || trainContext?.id || selectedTrainNumber || 'Unknown'}
+                    coordinates={trainStatus?.data?.current_station ? 
+                      { lat: trainStatus.data.current_station.lat, lng: trainStatus.data.current_station.lng } :
+                      trainContext?.currentLocation || { lat: 28.6139, lng: 77.2090 }
+                    }
+                    stations={trainContext?.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
+                    route={trainContext?.route || []}
+                    speedKmph={trainStatus?.data?.speed || trainContext?.currentSpeed || 0}
                     onPointClick={(p) => {
-                      onLocationClick?.({ ...p, chainage: trainContext.currentLocation.chainage });
+                      onLocationClick?.({ ...p, chainage: trainContext?.currentLocation?.chainage || '0' });
                     }}
                     className="h-full w-full"
                   />
@@ -200,15 +377,18 @@ export function LiveMap({ onLocationClick, showDetailedView = false, trainContex
             </div>
           ) : (
             <div className="relative bg-gray-100 rounded-lg overflow-hidden" style={{ height: '400px' }}>
-              {mapView === 'gis' && trainContext ? (
+              {mapView === 'gis' && (trainContext || trainStatus?.data) ? (
                 <TrainMap
-                  trainId={trainContext.id}
-                  coordinates={trainContext.currentLocation}
-                  stations={trainContext.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
-                  route={trainContext.route || []}
-                  speedKmph={trainContext.currentSpeed}
+                  trainId={trainStatus?.data?.train_number || trainContext?.id || selectedTrainNumber || 'Unknown'}
+                  coordinates={trainStatus?.data?.current_station ? 
+                    { lat: trainStatus.data.current_station.lat, lng: trainStatus.data.current_station.lng } :
+                    trainContext?.currentLocation || { lat: 28.6139, lng: 77.2090 }
+                  }
+                  stations={trainContext?.route?.map((r: any) => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng })) || []}
+                  route={trainContext?.route || []}
+                  speedKmph={trainStatus?.data?.speed || trainContext?.currentSpeed || 0}
                   onPointClick={(p) => {
-                    onLocationClick?.({ ...p, chainage: trainContext.currentLocation.chainage });
+                    onLocationClick?.({ ...p, chainage: trainContext?.currentLocation?.chainage || '0' });
                   }}
                   className="h-full w-full"
                 />

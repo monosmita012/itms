@@ -17,6 +17,7 @@ import { DefectAlert } from './components/DefectAlert';
 import { TrainSelector, TrainData } from './components/TrainSelector';
 import { TrainDashboard } from './components/TrainDashboard';
 import { IndiaRailwayMap } from './components/IndiaRailwayMap';
+import { LiveMap } from './components/LiveMap';
 import { ThermalMonitoring } from './components/ThermalMonitoring';
 import { SubsurfaceMonitoring } from './components/SubsurfaceMonitoring';
 import { AIAnalysis } from './components/AIAnalysis';
@@ -52,6 +53,7 @@ import {
 import 'leaflet/dist/leaflet.css';
 import { TrainMap } from './components/TrainMap';
 import { API_CONFIG, TrainLocationResponse, WebSocketMessage } from './config/api';
+import { rapidApiService, TrainStatusResponse } from './services/rapidApiService';
 
 const menuItems = [
   { id: 'train-selection', label: 'Train Selection', icon: List },
@@ -147,6 +149,8 @@ export default function App() {
   const [selectedSegment, setSelectedSegment] = useState<any>(null);
   const [showDetailedDashboard, setShowDetailedDashboard] = useState(false);
   const [simIndex, setSimIndex] = useState<number>(0);
+  const [liveTrainStatus, setLiveTrainStatus] = useState<TrainStatusResponse | null>(null);
+  const [isRapidApiConfigured, setIsRapidApiConfigured] = useState(false);
 
   const handleTrainSelect = (train: TrainData) => {
     setSelectedTrain(train);
@@ -175,6 +179,39 @@ export default function App() {
   const handleBackToOverview = () => {
     setShowDetailedDashboard(false);
     setSelectedSegment(null);
+  };
+
+  // Check RapidAPI configuration on mount
+  useEffect(() => {
+    const configStatus = rapidApiService.getConfigStatus();
+    setIsRapidApiConfigured(configStatus.isConfigured);
+  }, []);
+
+  // Handle live train status updates
+  const handleTrainStatusUpdate = (status: TrainStatusResponse) => {
+    setLiveTrainStatus(status);
+    
+    // Update selected train with live data if available
+    if (status.success && status.data && selectedTrain) {
+      setSelectedTrain(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          currentLocation: {
+            lat: status.data!.current_station.lat,
+            lng: status.data!.current_station.lng,
+            chainage: prev.currentLocation.chainage // Keep existing chainage
+          },
+          currentSpeed: status.data!.speed,
+          status: status.data!.status === 'ON_TIME' ? 'On Time' : 
+                  status.data!.status === 'DELAYED' ? 'Delayed' : 
+                  status.data!.status === 'RUNNING' ? 'On Time' : 'Stopped',
+          nextStation: status.data!.next_station?.station_name || prev.nextStation,
+          eta: status.data!.eta || prev.eta,
+          delay: status.data!.delay || 0
+        };
+      });
+    }
   };
 
   // Real-time GPS updates from API (with WebSocket fallback to polling)
@@ -500,16 +537,14 @@ export default function App() {
           <div className="h-screen w-full -m-6">
             {selectedTrain ? (
               <div className="h-full">
-                <TrainMap
-                  trainId={selectedTrain.id}
-                  coordinates={selectedTrain.currentLocation}
-                  stations={selectedTrain.route.map(r => ({ name: r.station || 'Station', lat: r.lat, lng: r.lng }))}
-                  route={selectedTrain.route}
-                  speedKmph={selectedTrain.currentSpeed}
-                  onPointClick={(p) => {
-                    setSelectedSegment({ ...p, chainage: selectedTrain?.currentLocation.chainage });
+                <LiveMap
+                  trainContext={selectedTrain}
+                  selectedTrainNumber={selectedTrain.number}
+                  onTrainStatusUpdate={handleTrainStatusUpdate}
+                  onLocationClick={(point) => {
+                    setSelectedSegment({ ...point, chainage: selectedTrain?.currentLocation.chainage });
                   }}
-                  className="h-full w-full"
+                  showDetailedView={true}
                 />
               </div>
             ) : (
@@ -688,7 +723,7 @@ export default function App() {
                 {/* Live Monitoring Badge */}
                 <Badge variant="destructive" className="animate-pulse bg-red-500">
                   <div className="w-2 h-2 bg-white rounded-full mr-2 animate-ping"></div>
-                  LIVE MONITORING
+                  {isRapidApiConfigured ? 'LIVE API MONITORING' : 'SIMULATION MODE'}
                 </Badge>
 
                 {/* System Standards */}
